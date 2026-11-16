@@ -40,7 +40,7 @@ CATEGORIES = [
     {"name": "虫洞广场", "url": "/c/square/110"},
 ]
 
-BASE_URL = "https://linux.do"
+BASE_URL = "http://localhost"
 
 
 # ============================================================================
@@ -89,7 +89,7 @@ class LinuxDoBot:
         self.stats = {"topics": 0, "likes": 0, "scrolls": 0}
 
     def _delay(self, lo=1.0, hi=3.0, reason=""):
-        t = random.uniform(lo, hi)
+        t = (lo + hi) / 2
         Log.debug(f"等待 {t:.1f}s ({reason})")
         time.sleep(t)
 
@@ -101,7 +101,6 @@ class LinuxDoBot:
             opts.set_argument("--no-sandbox")
             opts.set_argument("--disable-dev-shm-usage")
             opts.set_argument("--disable-gpu")
-            opts.set_argument("--disable-blink-features=AutomationControlled")
             opts.set_argument("--window-size=1920,1080")
             opts.set_argument("--lang=zh-CN")
 
@@ -110,10 +109,6 @@ class LinuxDoBot:
                 opts.set_argument("--headless=new")
                 Log.info("无头模式")
 
-            opts.set_argument(
-                "--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
 
             # 持久化用户数据（保持登录状态）
             user_data = os.environ.get("CHROME_USER_DATA", "/app/chrome-data")
@@ -216,9 +211,9 @@ class LinuxDoBot:
             self._delay(2, 3)
 
             # 随机滚动
-            scrolls = random.randint(3, 8)
+            scrolls = 5
             for i in range(scrolls):
-                dist = random.randint(300, 800)
+                dist = 550
                 self.page.run_js(f"window.scrollBy(0, {dist})")
                 self._delay(1.5, 3.5, f"滚动 {i + 1}/{scrolls}")
                 if self.page.run_js(
@@ -316,13 +311,13 @@ class LinuxDoBot:
 
 
 # ============================================================================
-# 随机定时调度器
+# 固定时间调度器
 # ============================================================================
 
 
-class RandomScheduler:
+class DailyScheduler:
     """
-    每天随机生成 N 个运行时间点，模拟真人使用习惯
+    按固定间隔安排每日任务
     """
 
     def __init__(self, bot, runs_per_day=2, topics_range=(15, 40)):
@@ -333,16 +328,13 @@ class RandomScheduler:
         self.running = True
 
     def _generate_daily_schedule(self):
-        """生成今天的随机运行时间"""
+        """生成今天的运行时间"""
         now = datetime.now()
         today = now.replace(hour=0, minute=0, second=0, microsecond=0)
         times = []
 
-        for _ in range(self.runs_per_day):
-            # 在 7:00 - 23:00 之间随机选择时间
-            hour = random.randint(7, 22)
-            minute = random.randint(0, 59)
-            run_time = today.replace(hour=hour, minute=minute)
+        for index in range(self.runs_per_day):
+            run_time = today + timedelta(hours=7 + 16 * index / self.runs_per_day)
             # 只保留未来的时间
             if run_time > now:
                 times.append(run_time)
@@ -391,9 +383,6 @@ class RandomScheduler:
                     continue
 
                 wait_seconds = (run_time - now).total_seconds()
-                # 添加 ±15 分钟的随机偏移
-                jitter = random.randint(-900, 900)
-                wait_seconds = max(60, wait_seconds + jitter)
 
                 next_run = now + timedelta(seconds=wait_seconds)
                 Log.info(
@@ -474,7 +463,7 @@ def main():
         topics = random.randint(topics_min, topics_max)
         bot.run_once(target_topics=topics)
     else:
-        scheduler = RandomScheduler(
+        scheduler = DailyScheduler(
             bot,
             runs_per_day=runs_per_day,
             topics_range=(topics_min, topics_max),

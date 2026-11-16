@@ -29,8 +29,8 @@ from DrissionPage import ChromiumPage, ChromiumOptions
 
 # 配置
 PROXY = "127.0.0.1:7897"  # 代理地址，不需要则设为 None
-BASE_URL = "https://linux.do"
-CONNECT_URL = "https://connect.linux.do"
+BASE_URL = "http://localhost"
+CONNECT_URL = "http://localhost"
 HEADLESS = True  # 先用有头模式登录一次，登录后可以改为 True
 TARGET_FLOORS = 20  # 目标楼层数量（测试用）
 MAX_TOPICS_PER_CATEGORY = 5  # 每个板块最多爬取的主题数
@@ -38,12 +38,12 @@ LIKE_PROBABILITY = 0.3  # 点赞概率
 
 # 板块列表
 CATEGORIES = [
-    {"name": "开发调优", "url": "https://linux.do/c/develop/4"},
-    {"name": "资源荟萃", "url": "https://linux.do/c/resource/14"},
-    {"name": "福利羊毛", "url": "https://linux.do/c/welfare/36"},
-    {"name": "搞七捻三", "url": "https://linux.do/c/gossip/11"},
-    {"name": "前沿快讯", "url": "https://linux.do/c/news/34"},
-    {"name": "运营反馈", "url": "https://linux.do/c/feedback/2"},
+    {"name": "开发调优", "url": "http://localhost/c/develop/4"},
+    {"name": "资源荟萃", "url": "http://localhost/c/resource/14"},
+    {"name": "福利羊毛", "url": "http://localhost/c/welfare/36"},
+    {"name": "搞七捻三", "url": "http://localhost/c/gossip/11"},
+    {"name": "前沿快讯", "url": "http://localhost/c/news/34"},
+    {"name": "运营反馈", "url": "http://localhost/c/feedback/2"},
 ]
 
 def log(msg):
@@ -65,7 +65,6 @@ def init_browser():
         co.set_proxy(PROXY)
         log(f"已设置代理: {PROXY}")
     
-    co.set_argument("--disable-blink-features=AutomationControlled")
     
     if HEADLESS:
         co.headless(True)
@@ -300,7 +299,7 @@ def do_like(page, button_index=0):
         """)
         
         if result:
-            time.sleep(random.uniform(0.5, 1))
+            time.sleep(0.75)
             if button_index == 0:
                 log(f"点赞主帖成功")
             else:
@@ -349,17 +348,17 @@ def climb_topic(page, topic_url, topic_title):
         if total_like_buttons > 0 and random.random() < LIKE_PROBABILITY:
             if do_like(page, 0):
                 likes_count += 1
-                time.sleep(random.uniform(0.5, 1))
+                time.sleep(0.75)
         
         # 开始爬楼
         while floors_read < total_floors:
             # 等待阅读
-            wait_time = random.uniform(2, 4)
+            wait_time = 3
             log(f"等待 {wait_time:.1f} 秒...")
             time.sleep(wait_time)
             
             # 滚动页面
-            scroll_distance = random.randint(600, 1200)
+            scroll_distance = 900
             page.run_js(f"window.scrollBy(0, {scroll_distance})")
             scroll_count += 1
             
@@ -397,7 +396,7 @@ def climb_topic(page, topic_url, topic_title):
                     reply_index = random.randint(1, min(total_like_buttons - 1, 10))
                     if do_like(page, reply_index):
                         likes_count += 1
-                        time.sleep(random.uniform(0.5, 1))
+                        time.sleep(0.75)
             
             # 安全检查：避免无限循环
             if scroll_count >= 200:
@@ -481,7 +480,7 @@ def main():
                 
                 # 帖子之间等待
                 if i < len(topics) - 1 and total_floors < TARGET_FLOORS:
-                    wait_time = random.uniform(2, 4)
+                    wait_time = 3
                     log(f"等待 {wait_time:.1f} 秒后继续...")
                     time.sleep(wait_time)
         

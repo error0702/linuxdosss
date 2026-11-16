@@ -35,8 +35,8 @@ class Config:
     PROXY = "127.0.0.1:7897"
 
     # 目标URL
-    BASE_URL = "https://linux.do"
-    CATEGORY_URL = "https://linux.do/c/develop/develop-lv2/31"
+    BASE_URL = "http://localhost"
+    CATEGORY_URL = "http://localhost/c/develop/develop-lv2/31"
 
     # 浏览设置
     MIN_TOPICS_PER_SESSION = 5      # 每次会话最少浏览帖子数
@@ -92,8 +92,6 @@ class BrowserManager:
             co.set_proxy(Config.PROXY)
             log(f"已设置代理: {Config.PROXY}")
 
-        # 反检测设置
-        co.set_argument('--disable-blink-features=AutomationControlled')
 
         # 无头模式
         if Config.HEADLESS:
@@ -217,7 +215,7 @@ class LinuxDoBot:
     def scroll_page(self, duration=None):
         """模拟滚动页面阅读"""
         if duration is None:
-            duration = random.uniform(*Config.READ_TIME)
+            duration = (sum(Config.READ_TIME) / 2)
 
         log(f"开始滚动阅读，预计 {duration:.1f} 秒")
 
@@ -226,14 +224,14 @@ class LinuxDoBot:
 
         while time.time() - start_time < duration:
             # 随机滚动距离
-            scroll_distance = random.randint(200, 500)
+            scroll_distance = 350
 
             # 执行滚动
             self.page.run_js(f"window.scrollBy(0, {scroll_distance})")
             scroll_count += 1
 
             # 随机等待
-            time.sleep(random.uniform(*Config.SCROLL_INTERVAL))
+            time.sleep((sum(Config.SCROLL_INTERVAL) / 2))
 
             # 检查是否到底部
             at_bottom = self.page.run_js("""
@@ -377,7 +375,7 @@ class LinuxDoBot:
                 if random.random() < Config.LIKE_PROBABILITY:
                     log("决定点赞主帖")
                     self.like_post(0)
-                    time.sleep(random.uniform(0.5, 1.5))
+                    time.sleep(1)
 
                 # 随机决定是否点赞回复
                 if len(buttons_info) > 1:
@@ -385,7 +383,7 @@ class LinuxDoBot:
                         if random.random() < Config.LIKE_REPLY_PROBABILITY:
                             log(f"决定点赞回复 #{i}")
                             self.like_post(i)
-                            time.sleep(random.uniform(0.5, 1.5))
+                            time.sleep(1)
 
             log(f"完成浏览: {topic_title}")
             return True
@@ -439,7 +437,7 @@ class LinuxDoBot:
 
             # 帖子之间等待
             if i < num_to_browse - 1:
-                wait_time = random.uniform(*Config.BETWEEN_TOPICS)
+                wait_time = (sum(Config.BETWEEN_TOPICS) / 2)
                 log(f"等待 {wait_time:.1f} 秒后继续...")
                 time.sleep(wait_time)
 

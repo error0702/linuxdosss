@@ -1,14 +1,6 @@
 name: Build with PyInstaller
 
 on:
-  push:
-    branches:
-      - main
-      - master
-      - dev
-    tags:
-      - 'v*'
-  pull_request:
   workflow_dispatch:
     inputs:
       version:

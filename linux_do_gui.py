@@ -7,7 +7,7 @@ Linux.do 论坛刷帖助手 v8.4
 3. 随机点赞帖子和回复
 4. 随机回帖
 5. 统计报告
-6. 防风控机制（随机间隔）
+6. 固定操作间隔
 7. 升级进度实时追踪
 8. 系统托盘支持
 9. 快速浏览模式（增加浏览话题数）
@@ -141,8 +141,8 @@ CATS = [
 
 CFG = {
     "proxy": "127.0.0.1:7897",
-    "base": "https://linux.do",
-    "connect": "https://connect.linux.do",
+    "base": "http://localhost",
+    "connect": "http://localhost",
     "like_rate": 0.3,
     "reply_rate": 0.05,
     "like_reply_rate": 0.15,
@@ -263,11 +263,11 @@ class Bot:
         s.initial_level_info = None  # 保存初始等级信息用于对比
         s.start_time = None  # 记录开始时间
 
-    def _random_delay(s, min_sec=0.5, max_sec=2.0, reason=""):
-        """防风控：随机延迟"""
-        delay = random.uniform(min_sec, max_sec)
+    def _wait_for_ui(s, min_sec=0.5, max_sec=2.0, reason=""):
+        """等待界面更新"""
+        delay = (min_sec + max_sec) / 2
         if reason:
-            s.lg(f"[防风控] {reason}，等待 {delay:.1f}s")
+            s.lg(f"{reason}，等待 {delay:.1f}s")
         time.sleep(delay)
 
     def start(s):
@@ -295,7 +295,6 @@ class Bot:
 
                 if s.cfg["proxy"]:
                     co.set_proxy(s.cfg["proxy"])
-                co.set_argument("--disable-blink-features=AutomationControlled")
 
                 # 设置浏览器窗口大小为屏幕高度
                 import tkinter as tk
@@ -564,7 +563,7 @@ class Bot:
         url = s.cfg["base"] + cat["u"]
         s.lg("进入板块: " + cat["n"])
         s.pg.get(url)
-        s._random_delay(2, 4, "页面加载")
+        s._wait_for_ui(2, 4, "页面加载")
 
         # 点击"回复"按钮进行排序
         s.lg("点击'回复'按钮进行排序...")
@@ -744,11 +743,11 @@ class Bot:
                 break
 
             # 等待阅读（2-4秒）
-            wait_time = random.uniform(2, 4)
+            wait_time = 3
             time.sleep(wait_time)
 
             # 滚动页面（600-1200px）
-            scroll_distance = random.randint(600, 1200)
+            scroll_distance = 900
             s.pg.run_js(f"window.scrollBy(0, {scroll_distance})")
             scroll_count += 1
 
@@ -808,8 +807,8 @@ class Bot:
             for i in range(3):
                 if not s.run:
                     break
-                time.sleep(random.uniform(1, 2))
-                s.pg.run_js(f"window.scrollBy(0, {random.randint(400, 800)})")
+                time.sleep(1.5)
+                s.pg.run_js("window.scrollBy(0, 600)")
             s.stats["floors"] += 3
             if s.update_progress:
                 s.update_progress(s.stats)
@@ -818,7 +817,7 @@ class Bot:
 
         total_floors = floor_info["total"]
         start_floor = floor_info["current"]  # 记录开始楼层
-        target_climb = random.randint(3, 5)  # 目标爬3-5层
+        target_climb = 4  # 目标爬3-5层
 
         s.lg(
             f"[快速浏览] 开始楼层: {start_floor}，目标爬: {target_climb} 层 (总楼层: {total_floors})"
@@ -834,10 +833,10 @@ class Bot:
             and s.run
         ):
             # 快速等待（1-2秒）
-            time.sleep(random.uniform(1, 2))
+            time.sleep(1.5)
 
             # 滚动页面
-            scroll_distance = random.randint(400, 800)
+            scroll_distance = 600
             s.pg.run_js(f"window.scrollBy(0, {scroll_distance})")
             scroll_count += 1
 
@@ -871,20 +870,20 @@ class Bot:
     def _scroll_page_legacy(s, duration=None):
         """传统滚动模式 - 用于无法获取楼层信息的情况"""
         if duration is None:
-            duration = random.uniform(8, 15)
+            duration = 11.5
 
         s.lg(f"传统滚动模式 {duration:.1f}s...")
         start = time.time()
         while time.time() - start < duration and s.run:
-            dist = random.randint(150, 400)
+            dist = 275
             s.pg.run_js(f"window.scrollBy(0, {dist})")
-            time.sleep(random.uniform(1.0, 3.0))
+            time.sleep(2)
 
             at_bottom = s.pg.run_js("""
             return (window.innerHeight + window.scrollY) >= document.body.offsetHeight - 100;
             """)
             if at_bottom:
-                s._random_delay(1, 3, "阅读完毕")
+                s._wait_for_ui(1, 3, "阅读完毕")
                 break
         return 0
 
@@ -908,7 +907,7 @@ class Bot:
             """)
 
             if result:
-                s._random_delay(0.8, 1.5, "点赞后")
+                s._wait_for_ui(0.8, 1.5, "点赞后")
                 if index == 0:
                     s.stats["like"] += 1
                     s.lg("点赞主帖成功")
@@ -948,7 +947,7 @@ class Bot:
                 s.lg("未找到回复按钮")
                 return False
 
-            s._random_delay(1.5, 3, "等待编辑器")
+            s._wait_for_ui(1.5, 3, "等待编辑器")
 
             # 输入内容 - 使用安全的方式传递内容
             s.pg.run_js(f"""
@@ -962,7 +961,7 @@ class Bot:
             }})();
             """)
 
-            s._random_delay(0.8, 1.5, "输入内容后")
+            s._wait_for_ui(0.8, 1.5, "输入内容后")
 
             # 提交
             submitted = s.pg.run_js("""
@@ -978,7 +977,7 @@ class Bot:
             """)
 
             if submitted:
-                s._random_delay(2, 4, "回复提交后")
+                s._wait_for_ui(2, 4, "回复提交后")
                 s.stats["reply"] += 1
                 s.lg("回复成功")
                 # 更新进度
@@ -1033,7 +1032,7 @@ class Bot:
                 return False
 
             # 等待页面加载
-            s._random_delay(3, 5, "话题页面加载")
+            s._wait_for_ui(3, 5, "话题页面加载")
 
             # 注意：小蓝点在板块列表页面，不在话题详情页面
             # 所以我们在这里只需要确保页面加载完成即可
@@ -1051,7 +1050,7 @@ class Bot:
             # 爬楼阅读（scroll_page内部会实时更新stats["floors"]和进度）
             s.scroll_page()
 
-            s._random_delay(1, 2, "阅读后")
+            s._wait_for_ui(1, 2, "阅读后")
 
             # 获取点赞按钮数量
             btn_count = (
@@ -1067,7 +1066,7 @@ class Bot:
             if s.enable_like and btn_count > 0 and random.random() < s.cfg["like_rate"]:
                 s.do_like(0)
                 if s.enable_wait:
-                    s._random_delay(s.cfg["wait_min"], s.cfg["wait_max"], "点赞后休息")
+                    s._wait_for_ui(s.cfg["wait_min"], s.cfg["wait_max"], "点赞后休息")
 
             # 随机点赞回复（检查开关）
             if s.enable_like and btn_count > 1:
@@ -1075,20 +1074,20 @@ class Bot:
                     if random.random() < s.cfg["like_reply_rate"]:
                         s.do_like(i)
                         if s.enable_wait:
-                            s._random_delay(
+                            s._wait_for_ui(
                                 s.cfg["wait_min"], s.cfg["wait_max"], "点赞回复后"
                             )
 
             # 随机回帖（检查开关）
             if s.enable_reply and random.random() < s.cfg["reply_rate"]:
                 if s.enable_wait:
-                    s._random_delay(s.cfg["wait_min"], s.cfg["wait_max"], "准备回帖")
+                    s._wait_for_ui(s.cfg["wait_min"], s.cfg["wait_max"], "准备回帖")
                 s.do_reply()
 
             # 关键修改：返回板块列表
             s.lg("返回板块列表...")
             s.pg.back()
-            s._random_delay(2, 3, "返回后等待")
+            s._wait_for_ui(2, 3, "返回后等待")
 
             # 如果是未读话题，检查小蓝点是否消失（确认已被标记为已读）
             if is_unread:
@@ -1188,7 +1187,7 @@ class Bot:
             return 0
 
         # 随机选择几个帖子
-        count = min(random.randint(3, 8), len(topics))
+        count = min(5, len(topics))
         selected = random.sample(topics, count)
 
         browsed = 0
@@ -1211,10 +1210,10 @@ class Bot:
                 s.run = False
                 break
 
-            # 防风控：帖子之间随机等待（检查开关）
+            # 帖子之间等待（检查开关）
             # 注意：browse_topic 返回时已经有等待，这里可以减少等待时间
             if s.run and s.enable_wait:
-                s._random_delay(0.5, 1.5, "准备下一个话题")
+                s._wait_for_ui(0.5, 1.5, "准备下一个话题")
 
         return browsed
 
@@ -1331,9 +1330,9 @@ class Bot:
                             f"⏱ 进度: {int(elapsed_minutes)}/{s.target_value} 分钟 (剩余 {int(remaining_minutes)} 分钟)"
                         )
 
-                    # 板块之间随机等待（检查开关）
+                    # 板块之间等待（检查开关）
                     if s.enable_wait and s.run:
-                        s._random_delay(
+                        s._wait_for_ui(
                             s.cfg["wait_min"] + 1, s.cfg["wait_max"] + 2, "切换板块"
                         )
 

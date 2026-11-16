@@ -1,0 +1,45 @@
+name: Test forum read receipt
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  read-receipt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Start a temporary Discourse 2026.7.5
+        run: |
+          docker run -d --name forum -p 127.0.0.1:80:80 \
+            -e DISCOURSE_HOSTNAME=localhost -e DISCOURSE_FORCE_HTTPS=false \
+            -e UNICORN_WORKERS=2 \
+            discourse/discourse:2026.7.5@sha256:41a3cbb026b2296eff167ee5e4d3899f92d650a632c3638d6377f0457efb30d3
+      - name: Prepare browser
+        run: |
+          python3 -m venv "$RUNNER_TEMP/forum-browser"
+          "$RUNNER_TEMP/forum-browser/bin/pip" install playwright==1.56.0
+          echo "$RUNNER_TEMP/forum-browser/bin" >> "$GITHUB_PATH"
+          google-chrome --version
+      - name: Wait for the forum
+        run: |
+          for i in {1..180}; do
+            if curl -fsS --max-time 3 http://localhost/srv/status 2>/dev/null | grep -qi 'ok'; then exit 0; fi
+            if [[ $(docker inspect -f '{{.State.Running}}' forum) != true ]]; then break; fi
+            sleep 5
+          done
+          exit 1
+      - name: Seed and verify read receipts
+        run: |
+          export FIXTURE_PASSWORD="$(openssl rand -hex 24)"
+          echo "::add-mask::$FIXTURE_PASSWORD"
+          docker exec -i -e FIXTURE_PASSWORD -u discourse -w /var/www/discourse forum \
+            bundle exec rails runner - < ci/seed.rb
+          python ci/check_reads.py
+      - name: Forum startup diagnostics
+        if: failure()
+        run: docker logs --tail 100 forum
+      - name: Remove test forum
+        if: always()
+        run: docker rm -fv forum
