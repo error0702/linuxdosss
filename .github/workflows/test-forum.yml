@@ -12,8 +12,18 @@ jobs:
           persist-credentials: false
       - name: Start a temporary Discourse 2026.7.5
         run: |
-          docker run -d --name forum -p 127.0.0.1:80:80 \
+          docker network create read-test
+          export POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+          echo "::add-mask::$POSTGRES_PASSWORD"
+          docker run -d --name forum-db --network read-test \
+            -e POSTGRES_USER=discourse -e POSTGRES_DB=discourse -e POSTGRES_PASSWORD \
+            pgvector/pgvector:pg18@sha256:38681dc6eaf55308e2a4c6de392d131652dcfac70e1263e35cd9b5ea3fe39782
+          docker run -d --name forum-cache --network read-test \
+            redis:7-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
+          docker run -d --name forum --network read-test -p 127.0.0.1:80:80 \
             -e DISCOURSE_HOSTNAME=localhost -e DISCOURSE_FORCE_HTTPS=false \
+            -e DISCOURSE_DB_HOST=forum-db -e DISCOURSE_DB_SOCKET= \
+            -e DISCOURSE_DB_PASSWORD="$POSTGRES_PASSWORD" -e DISCOURSE_REDIS_HOST=forum-cache \
             -e UNICORN_WORKERS=2 \
             discourse/discourse:2026.7.5@sha256:41a3cbb026b2296eff167ee5e4d3899f92d650a632c3638d6377f0457efb30d3
       - name: Prepare browser
@@ -39,7 +49,12 @@ jobs:
           python ci/check_reads.py
       - name: Forum startup diagnostics
         if: failure()
-        run: docker logs --tail 100 forum
+        run: |
+          docker logs --tail 60 forum
+          docker exec forum sh -c 'for f in /var/log/unicorn/current /shared/log/rails/production.log /var/log/nginx/error.log; do if test -f "$f"; then tail -35 "$f"; fi; done'
+          docker logs --tail 25 forum-db
       - name: Remove test forum
         if: always()
-        run: docker rm -fv forum
+        run: |
+          docker rm -fv forum forum-db forum-cache
+          docker network rm read-test

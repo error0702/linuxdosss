@@ -9,8 +9,8 @@ from pathlib import Path
 def snapshot():
     sql = Path("ci/read_counts.sql").read_text()
     out = subprocess.check_output(
-        ["docker", "exec", "-i", "-u", "postgres", "forum",
-         "psql", "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-d", "discourse"],
+        ["docker", "exec", "-i", "forum-db",
+         "psql", "-U", "discourse", "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-d", "discourse"],
         input=sql, text=True,
     )
     account, target, control = map(int, out.strip().split("|"))
